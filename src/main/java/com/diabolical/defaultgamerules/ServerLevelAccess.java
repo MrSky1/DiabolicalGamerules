@@ -13,7 +13,7 @@ final class ServerLevelAccess {
         if (!response.realPrompt()) return;
 
         DefaultGameruleWorldData data = DefaultGameruleWorldData.get(player.getServer().overworld());
-        if (data.isSynced()) return;
+        if (data.isSynced() && !response.testPrompt()) return;
         if (response.yes()) {
             int changed = GameruleDefaults.apply((ServerLevel) player.level());
             data.setSynced(true);
