@@ -5,11 +5,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.GameRules;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.fml.ModList;
-import net.neoforged.neoforgespi.language.IModFileInfo;
-
-import java.net.URI;
-import java.security.CodeSource;
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
@@ -119,36 +114,43 @@ public final class GameruleDefaults {
 
     /**
      * Called by the GameRules.register mixin while a mod is registering a rule.
-     * The caller's code source is matched to NeoForge's loaded mod-file list.
+     * NeoForge's scan data maps each class back to the mod file that contains it,
+     * avoiding unreliable CodeSource/JAR path comparisons.
+     *
+     * @return true when the class was matched to a unique owning mod.
      */
-    public static void recordRuleOwner(String ruleName, Class<?> registeringClass) {
+    public static boolean recordRuleOwner(String ruleName, Class<?> registeringClass) {
         try {
             ModList modList = ModList.get();
-            if (modList == null) return;
+            if (modList == null) return false;
 
-            CodeSource codeSource = registeringClass.getProtectionDomain().getCodeSource();
-            if (codeSource == null || codeSource.getLocation() == null) return;
-            URI sourceUri = codeSource.getLocation().toURI();
-            if (!"file".equalsIgnoreCase(sourceUri.getScheme())) return;
-            java.nio.file.Path sourcePath = java.nio.file.Path.of(sourceUri).toAbsolutePath().normalize();
+            String className = registeringClass.getName();
+            for (var scanData : modList.getAllScanData()) {
+                boolean containsClass = scanData.getClasses().stream()
+                        .anyMatch(classData -> classData.clazz().getClassName().equals(className));
+                if (!containsClass) continue;
 
-            for (IModFileInfo modFileInfo : modList.getModFiles()) {
-                var modFile = modFileInfo.getFile();
-                java.nio.file.Path modPath = modFile.getFilePath().toAbsolutePath().normalize();
-                if (!sourcePath.equals(modPath)) continue;
-
-                List<? extends net.neoforged.neoforgespi.language.IModInfo> mods = modFileInfo.getMods();
-                if (mods.size() == 1) {
-                    RULE_OWNERS.put(ruleName, mods.getFirst().getModId());
-                } else {
-                    LOGGER.warn("Cannot uniquely determine the owner of gamerule '{}' because {} declares multiple mods in the same file.",
-                            ruleName, sourcePath);
+                var modFiles = scanData.getIModInfoData();
+                if (modFiles.size() != 1) {
+                    LOGGER.warn("Cannot uniquely determine the owner of gamerule '{}' because class {} belongs to a file declaring {} mods.",
+                            ruleName, className, modFiles.stream().mapToInt(info -> info.getMods().size()).sum());
+                    return false;
                 }
-                return;
+
+                var mods = modFiles.getFirst().getMods();
+                if (mods.size() != 1) {
+                    LOGGER.warn("Cannot uniquely determine the owner of gamerule '{}' because class {} belongs to a file declaring {} mods.",
+                            ruleName, className, mods.size());
+                    return false;
+                }
+
+                RULE_OWNERS.put(ruleName, mods.getFirst().getModId());
+                return true;
             }
         } catch (Exception exception) {
             LOGGER.debug("Could not determine the registering mod for gamerule '{}'.", ruleName, exception);
         }
+        return false;
     }
 
     /**
