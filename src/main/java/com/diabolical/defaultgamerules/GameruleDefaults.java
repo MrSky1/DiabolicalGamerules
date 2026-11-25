@@ -238,7 +238,7 @@ public final class GameruleDefaults {
             @Override
             public void visitInteger(GameRules.Key<GameRules.IntegerValue> key,
                                      GameRules.Type<GameRules.IntegerValue> type) {
-                String id = key.getId();
+                String id = qualifiedId(key.getId());
                 found.add(id);
                 String configuredValue = configured.get(id);
                 if (configuredValue == null) {
