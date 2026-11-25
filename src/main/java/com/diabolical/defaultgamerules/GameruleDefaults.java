@@ -5,6 +5,12 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.GameRules;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.fml.ModList;
+import net.neoforged.neoforgespi.language.IModFileInfo;
+
+import java.net.URI;
+import java.security.CodeSource;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +34,7 @@ public final class GameruleDefaults {
             FMLPaths.CONFIGDIR.get().resolve("gamerule_defaults.toml");
 
     private static boolean syncDefaultsInOldWorld = false;
+    private static final Map<String, String> RULE_OWNERS = new ConcurrentHashMap<>();
 
     private GameruleDefaults() {}
 
@@ -111,18 +118,52 @@ public final class GameruleDefaults {
     }
 
     /**
-     * GameRules.Key#getId() in Minecraft 1.21.1 exposes only the rule name,
-     * not its registering mod namespace. For the common convention where a
-     * mod prefixes its rule names with its mod id in camelCase, recover that
-     * namespace from the loaded mod list. Rules without a recognizable
-     * prefix remain in minecraft because the API provides no owner metadata.
+     * Called by the GameRules.register mixin while a mod is registering a rule.
+     * The caller's code source is matched to NeoForge's loaded mod-file list.
+     */
+    public static void recordRuleOwner(String ruleName, Class<?> registeringClass) {
+        try {
+            ModList modList = ModList.get();
+            if (modList == null) return;
+
+            CodeSource codeSource = registeringClass.getProtectionDomain().getCodeSource();
+            if (codeSource == null || codeSource.getLocation() == null) return;
+            URI sourceUri = codeSource.getLocation().toURI();
+            if (!"file".equalsIgnoreCase(sourceUri.getScheme())) return;
+            java.nio.file.Path sourcePath = java.nio.file.Path.of(sourceUri).toAbsolutePath().normalize();
+
+            for (IModFileInfo modFileInfo : modList.getModFiles()) {
+                var modFile = modFileInfo.getFile();
+                java.nio.file.Path modPath = modFile.getFilePath().toAbsolutePath().normalize();
+                if (!sourcePath.equals(modPath)) continue;
+
+                List<? extends net.neoforged.neoforgespi.language.IModInfo> mods = modFileInfo.getMods();
+                if (mods.size() == 1) {
+                    RULE_OWNERS.put(ruleName, mods.getFirst().getModId());
+                } else {
+                    LOGGER.warn("Cannot uniquely determine the owner of gamerule '{}' because {} declares multiple mods in the same file.",
+                            ruleName, sourcePath);
+                }
+                return;
+            }
+        } catch (Exception exception) {
+            LOGGER.debug("Could not determine the registering mod for gamerule '{}'.", ruleName, exception);
+        }
+    }
+
+    /**
+     * Resolve the owner recorded at registration time. Keep the old prefix
+     * heuristic as a compatibility fallback for unusual classloader layouts.
      */
     private static String qualifiedId(String ruleName) {
-        String owner = ModList.get().getMods().stream()
-                .map(mod -> mod.getModId())
-                .filter(modId -> ruleName.startsWith(toCamelCase(modId)))
-                .max(java.util.Comparator.comparingInt(String::length))
-                .orElse("minecraft");
+        String owner = RULE_OWNERS.get(ruleName);
+        if (owner == null) {
+            owner = ModList.get().getMods().stream()
+                    .map(mod -> mod.getModId())
+                    .filter(modId -> ruleName.startsWith(toCamelCase(modId)))
+                    .max(java.util.Comparator.comparingInt(String::length))
+                    .orElse("minecraft");
+        }
         return owner + ":" + ruleName;
     }
 

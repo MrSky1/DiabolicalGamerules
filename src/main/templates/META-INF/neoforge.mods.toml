@@ -29,8 +29,8 @@ description='''
 I couldn't find a default gamerule mod I was happy with, so I asked ChatGPT to make this one for me. Ideally, you'll be able to edit gamerule defaults from a config file, or you can sync your new defaults with a single command from ingame.
 '''
 
-#[[mixins]]
-#config="${mod_id}.mixins.json"
+[[mixins]]
+config="diabolical_default_gamerules.mixins.json"
 
 #[[accessTransformers]]
 #file="META-INF/accesstransformer.cfg"
