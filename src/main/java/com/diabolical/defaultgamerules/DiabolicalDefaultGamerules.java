@@ -1,5 +1,6 @@
 package com.diabolical.defaultgamerules;
 
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
@@ -14,7 +15,6 @@ import net.neoforged.neoforge.event.level.LevelEvent;
 
 @Mod(DiabolicalDefaultGamerules.MOD_ID)
 public class DiabolicalDefaultGamerules {
-
     public static final String MOD_ID = "diabolical_default_gamerules";
 
     public DiabolicalDefaultGamerules(IEventBus modEventBus) {
@@ -26,15 +26,8 @@ public class DiabolicalDefaultGamerules {
     }
 
     private void onCreateSpawnPosition(LevelEvent.CreateSpawnPosition event) {
-        if (!(event.getLevel() instanceof ServerLevel level)) {
-            return;
-        }
-
-        // Only apply defaults to a newly initialized Overworld, not existing worlds.
-        if (!level.dimension().equals(Level.OVERWORLD)) {
-            return;
-        }
-
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
+        if (!level.dimension().equals(Level.OVERWORLD)) return;
         GameruleDefaults.apply(level);
         DefaultGameruleWorldData.get(level).setSynced(true);
     }
@@ -42,7 +35,7 @@ public class DiabolicalDefaultGamerules {
     private void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) || !GameruleDefaults.shouldPromptOldWorlds()) return;
         DefaultGameruleWorldData data = DefaultGameruleWorldData.get(player.getServer().overworld());
-        if (!data.isSynced()) NetworkHandler.openPrompt(player);
+        if (!data.isSynced()) NetworkHandler.openPrompt(player, true);
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {
@@ -51,50 +44,41 @@ public class DiabolicalDefaultGamerules {
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.literal("save_defaults")
                                 .executes(context -> {
-                                    int count = GameruleDefaults.saveDefaults(
-                                            context.getSource().getServer()
-                                    );
-
+                                    int count = GameruleDefaults.saveDefaults(context.getSource().getServer());
                                     context.getSource().sendSuccess(
-                                            () -> Component.literal(
-                                                    "Saved " + count
-                                                            + " gamerule defaults to the config."
-                                            ),
+                                            () -> Component.literal("Saved " + count + " gamerule defaults to the config."),
                                             true
                                     );
                                     return count;
                                 }))
                         .then(Commands.literal("sync_gamerules")
                                 .executes(context -> {
-                                    int count = GameruleDefaults.apply(
-                                            context.getSource().getLevel()
-                                    );
-
+                                    int count = GameruleDefaults.apply(context.getSource().getLevel());
                                     if (count == 0) {
-                                        context.getSource().sendFailure(
-                                                Component.literal(
-                                                        "No gamerules needed changing. Check that the config contains valid gamerule values that differ from this world's current values."
-                                                )
-                                        );
+                                        context.getSource().sendFailure(Component.literal(
+                                                "No gamerules needed changing. Check that the config contains valid gamerule values that differ from this world's current values."
+                                        ));
                                         return 0;
                                     }
-
                                     context.getSource().sendSuccess(
-                                            () -> Component.literal(
-                                                    "Applied " + count
-                                                            + " configured gamerule changes to this world."
-                                            ),
+                                            () -> Component.literal("Applied " + count + " configured gamerule changes to this world."),
                                             true
                                     );
                                     return count;
                                 }))
-                        .then(Commands.literal("prompt_debug")
-                                .executes(context -> {
-                                    NetworkHandler.openPrompt(
-                                            context.getSource().getPlayerOrException()
-                                    );
-                                    return 1;
-                                }))
+                        .then(Commands.literal("test_prompt")
+                                .then(Commands.argument("real_prompt", BoolArgumentType.bool())
+                                        .executes(context -> {
+                                            boolean realPrompt = BoolArgumentType.getBool(context, "real_prompt");
+                                            NetworkHandler.openPrompt(context.getSource().getPlayerOrException(), realPrompt);
+                                            context.getSource().sendSuccess(
+                                                    () -> Component.literal(realPrompt
+                                                            ? "Opened the real old-world prompt."
+                                                            : "Opened the debug-only prompt. Responses will not change the world."),
+                                                    false
+                                            );
+                                            return 1;
+                                        })))
         );
     }
 }
