@@ -26,7 +26,11 @@ public final class GameruleDefaults {
     private static final Path CONFIG =
             FMLPaths.CONFIGDIR.get().resolve("gamerule_defaults.toml");
 
+    private static boolean syncDefaultsInOldWorld = false;
+
     private GameruleDefaults() {}
+
+    public static boolean shouldPromptOldWorlds() { return syncDefaultsInOldWorld; }
 
     public static void initialize() {
         try {
@@ -47,6 +51,7 @@ public final class GameruleDefaults {
     private static Map<String, String> load() throws IOException {
         Map<String, String> result = new TreeMap<>();
         String currentNamespace = null;
+        syncDefaultsInOldWorld = false;
 
         for (String original : Files.readAllLines(CONFIG)) {
             String line = original.trim();
@@ -55,6 +60,11 @@ public final class GameruleDefaults {
                 continue;
             }
 
+            if (currentNamespace == null && line.startsWith("syncDefaultsInOldWorld")) {
+                int optionSeparator = line.indexOf("=");
+                if (optionSeparator >= 0) syncDefaultsInOldWorld = Boolean.parseBoolean(line.substring(optionSeparator + 1).trim());
+                continue;
+            }
             if (line.startsWith("[") && line.endsWith("]")) {
                 String section = line.substring(1, line.length() - 1).trim();
                 if (section.equals("gamerules")) {
@@ -118,6 +128,8 @@ public final class GameruleDefaults {
 
         StringBuilder output = new StringBuilder();
         output.append("# Diabolical Default Gamerules\n");
+        output.append("# Ask before applying configured gamerules to existing worlds.\n");
+        output.append("syncDefaultsInOldWorld = ").append(syncDefaultsInOldWorld).append("\n");
         output.append("# Only gamerules differing from their registered startup defaults are stored.\n");
         output.append("# Gamerules are grouped by the mod that registered them.\n");
 

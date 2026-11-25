@@ -4,6 +4,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
 import net.minecraft.server.level.ServerLevel;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
@@ -19,6 +20,8 @@ public class DiabolicalDefaultGamerules {
     public DiabolicalDefaultGamerules(IEventBus modEventBus) {
         NeoForge.EVENT_BUS.addListener(this::onCreateSpawnPosition);
         NeoForge.EVENT_BUS.addListener(this::onRegisterCommands);
+        NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
+        modEventBus.addListener(NetworkHandler::register);
         GameruleDefaults.initialize();
     }
 
@@ -37,6 +40,13 @@ public class DiabolicalDefaultGamerules {
         }
 
         GameruleDefaults.apply(level);
+        DefaultGameruleWorldData.get(level).setSynced(true);
+    }
+
+    private void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) || !GameruleDefaults.shouldPromptOldWorlds()) return;
+        DefaultGameruleWorldData data = DefaultGameruleWorldData.get(player.getServer().overworld());
+        if (!data.isSynced()) NetworkHandler.openPrompt(player);
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {
