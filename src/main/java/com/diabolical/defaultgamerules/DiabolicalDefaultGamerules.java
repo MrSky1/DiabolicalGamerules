@@ -64,7 +64,7 @@ public class DiabolicalDefaultGamerules {
                                     );
                                     return count;
                                 }))
-                        .then(Commands.literal("sync_default_gamerules")
+                        .then(Commands.literal("sync_gamerules")
                                 .executes(context -> {
                                     int count = GameruleDefaults.apply(
                                             context.getSource().getLevel()
