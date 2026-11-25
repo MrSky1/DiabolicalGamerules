@@ -1,9 +1,9 @@
 {
-  "screen.diabolical_default_gamerules.title": "Sync Default Gamerules?",
-  "screen.diabolical_default_gamerules.description": "Would you like to apply the gamerule values from this mod's config to this existing world?",
+  "screen.diabolical_default_gamerules.title": "Sync Default Gamerules",
+  "screen.diabolical_default_gamerules.description": "Would you like to apply the default gamerules to this world?",
   "screen.diabolical_default_gamerules.yes": "Yes",
   "screen.diabolical_default_gamerules.no": "No",
   "screen.diabolical_default_gamerules.dont_ask_again": "Don't ask again",
-  "message.diabolical_default_gamerules.sync_success": "Successfully synced configured gamerules to this world (%s changed).",
-  "message.diabolical_default_gamerules.prompt_again": "This prompt will appear again the next time you join this world. If you do not want to keep seeing it, check the Don't ask again box before pressing No."
+  "message.diabolical_default_gamerules.sync_success": "Successfully synced gamerules to this world (%s changed).",
+  "message.diabolical_default_gamerules.prompt_again": "This prompt will appear again the next time you join. If you don't want to see it, tick Don't ask again before pressing No."
 }
