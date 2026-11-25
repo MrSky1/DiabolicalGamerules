@@ -4,6 +4,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.GameRules;
 import net.neoforged.fml.loading.FMLPaths;
+import net.neoforged.fml.ModList;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -109,6 +110,36 @@ public final class GameruleDefaults {
         return value;
     }
 
+    /**
+     * GameRules.Key#getId() in Minecraft 1.21.1 exposes only the rule name,
+     * not its registering mod namespace. For the common convention where a
+     * mod prefixes its rule names with its mod id in camelCase, recover that
+     * namespace from the loaded mod list. Rules without a recognizable
+     * prefix remain in minecraft because the API provides no owner metadata.
+     */
+    private static String qualifiedId(String ruleName) {
+        String owner = ModList.get().getMods().stream()
+                .map(mod -> mod.getModId())
+                .filter(modId -> ruleName.startsWith(toCamelCase(modId)))
+                .max(java.util.Comparator.comparingInt(String::length))
+                .orElse("minecraft");
+        return owner + ":" + ruleName;
+    }
+
+    private static String toCamelCase(String modId) {
+        StringBuilder result = new StringBuilder();
+        boolean capitalizeNext = false;
+        for (char character : modId.toCharArray()) {
+            if (character == '_' || character == '-') {
+                capitalizeNext = true;
+            } else {
+                result.append(capitalizeNext ? Character.toUpperCase(character) : character);
+                capitalizeNext = false;
+            }
+        }
+        return result.toString();
+    }
+
     private static String namespace(String id) {
         int separator = id.indexOf(':');
         return separator >= 0 ? id.substring(0, separator) : "minecraft";
@@ -183,7 +214,7 @@ public final class GameruleDefaults {
             @Override
             public void visitBoolean(GameRules.Key<GameRules.BooleanValue> key,
                                      GameRules.Type<GameRules.BooleanValue> type) {
-                String id = key.getId();
+                String id = qualifiedId(key.getId());
                 found.add(id);
                 String configuredValue = configured.get(id);
                 if (configuredValue == null) {
@@ -259,7 +290,7 @@ public final class GameruleDefaults {
                 String startup = defaults.getRule(key).serialize();
                 String actual = current.getRule(key).serialize();
                 if (!startup.equals(actual)) {
-                    changed.put(key.getId(), actual);
+                    changed.put(qualifiedId(key.getId()), actual);
                 }
             }
         });
