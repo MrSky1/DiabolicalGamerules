@@ -14,32 +14,20 @@ import net.neoforged.neoforge.event.level.LevelEvent;
 @Mod(DiabolicalDefaultGamerules.MOD_ID)
 public class DiabolicalDefaultGamerules {
 
-    public static final String MOD_ID =
-            "diabolical_default_gamerules";
+    public static final String MOD_ID = "diabolical_default_gamerules";
 
     public DiabolicalDefaultGamerules(IEventBus modEventBus) {
-
-        NeoForge.EVENT_BUS.addListener(
-                this::onCreateSpawnPosition
-        );
-
-        NeoForge.EVENT_BUS.addListener(
-                this::onRegisterCommands
-        );
-
+        NeoForge.EVENT_BUS.addListener(this::onCreateSpawnPosition);
+        NeoForge.EVENT_BUS.addListener(this::onRegisterCommands);
         GameruleDefaults.initialize();
     }
 
-    private void onCreateSpawnPosition(
-            LevelEvent.CreateSpawnPosition event
-    ) {
-
+    private void onCreateSpawnPosition(LevelEvent.CreateSpawnPosition event) {
         if (!(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
 
-        // Only apply defaults to a newly initialized
-        // Overworld, not existing worlds.
+        // Only apply defaults to a newly initialized Overworld, not existing worlds.
         if (!level.dimension().equals(Level.OVERWORLD)) {
             return;
         }
@@ -51,31 +39,49 @@ public class DiabolicalDefaultGamerules {
         GameruleDefaults.apply(level);
     }
 
-    private void onRegisterCommands(
-            RegisterCommandsEvent event
-    ) {
-
+    private void onRegisterCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(
-                Commands.literal("syncdefaultgamerules")
-                        .requires(source ->
-                                source.hasPermission(2))
-                        .executes(context -> {
-
-                            int count =
-                                    GameruleDefaults.sync(
+                Commands.literal("diabolical_gamerules")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.literal("save_defaults")
+                                .executes(context -> {
+                                    int count = GameruleDefaults.saveDefaults(
                                             context.getSource().getServer()
                                     );
 
-                            context.getSource().sendSuccess(
-                                    () -> Component.literal(
-                                            "Synchronized " + count
-                                            + " modified gamerules."
-                                    ),
-                                    true
-                            );
+                                    context.getSource().sendSuccess(
+                                            () -> Component.literal(
+                                                    "Saved " + count
+                                                            + " gamerule defaults to the config."
+                                            ),
+                                            true
+                                    );
+                                    return count;
+                                }))
+                        .then(Commands.literal("sync_default_gamerules")
+                                .executes(context -> {
+                                    int count = GameruleDefaults.apply(
+                                            context.getSource().getLevel()
+                                    );
 
-                            return count;
-                        })
+                                    if (count == 0) {
+                                        context.getSource().sendFailure(
+                                                Component.literal(
+                                                        "No gamerules needed changing. Check that the config contains valid gamerule values that differ from this world's current values."
+                                                )
+                                        );
+                                        return 0;
+                                    }
+
+                                    context.getSource().sendSuccess(
+                                            () -> Component.literal(
+                                                    "Applied " + count
+                                                            + " configured gamerule changes to this world."
+                                            ),
+                                            true
+                                    );
+                                    return count;
+                                }))
         );
     }
 }

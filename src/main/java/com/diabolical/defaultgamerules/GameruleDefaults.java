@@ -3,6 +3,7 @@ package com.diabolical.defaultgamerules;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.GameRules;
+import net.neoforged.fml.loading.FMLPaths;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,21 +12,19 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.HashSet;
-
-import net.neoforged.fml.loading.FMLPaths;
 
 public final class GameruleDefaults {
 
     private static final Logger LOGGER =
-        LoggerFactory.getLogger(GameruleDefaults.class);
+            LoggerFactory.getLogger(GameruleDefaults.class);
 
     private static final Path CONFIG =
-            FMLPaths.CONFIGDIR.get()
-                    .resolve("gamerule_defaults.toml");
+            FMLPaths.CONFIGDIR.get().resolve("gamerule_defaults.toml");
 
     private GameruleDefaults() {}
 
@@ -34,252 +33,219 @@ public final class GameruleDefaults {
             if (!Files.exists(CONFIG)) {
                 save(Map.of());
             }
-
             load();
-
         } catch (Exception exception) {
-            LOGGER.error(
-                    "Could not initialize gamerule defaults!",
-                    exception
-            );
+            LOGGER.error("Could not initialize gamerule defaults!", exception);
         }
     }
 
-    private static Map<String, String> load()
-            throws IOException {
-
+    /**
+     * Reads grouped sections such as [gamerules.minecraft] and
+     * [gamerules.some_mod]. The former [gamerules] format is also accepted
+     * so existing installations retain their configured defaults.
+     */
+    private static Map<String, String> load() throws IOException {
         Map<String, String> result = new TreeMap<>();
+        String currentNamespace = null;
 
-        boolean inGamerules = false;
-
-        for (String original :
-                Files.readAllLines(CONFIG)) {
-
+        for (String original : Files.readAllLines(CONFIG)) {
             String line = original.trim();
 
             if (line.isEmpty() || line.startsWith("#")) {
                 continue;
             }
 
-            if (line.startsWith("[")) {
-                inGamerules =
-                        line.equals("[gamerules]");
+            if (line.startsWith("[") && line.endsWith("]")) {
+                String section = line.substring(1, line.length() - 1).trim();
+                if (section.equals("gamerules")) {
+                    currentNamespace = "minecraft";
+                } else if (section.startsWith("gamerules.")) {
+                    currentNamespace = section.substring("gamerules.".length());
+                } else {
+                    currentNamespace = null;
+                }
                 continue;
             }
 
-            if (!inGamerules) {
+            if (currentNamespace == null) {
                 continue;
             }
 
             int separator = line.indexOf('=');
-
             if (separator < 0) {
                 continue;
             }
 
-            String key =
-                    line.substring(0, separator).trim();
-
-            String value =
-                    line.substring(separator + 1).trim();
-
-            if (key.startsWith("\"")
-                    && key.endsWith("\"")) {
-                key = key.substring(1, key.length() - 1);
-            }
-
-            if (value.startsWith("\"")
-                    && value.endsWith("\"")) {
-                value = value.substring(1, value.length() - 1);
-            }
+            String key = unquote(line.substring(0, separator).trim());
+            String value = unquote(line.substring(separator + 1).trim());
 
             if (value.equalsIgnoreCase("true")
                     || value.equalsIgnoreCase("false")
                     || value.matches("-?\\d+")) {
-
-                result.put(key, value);
+                String id = key.contains(":") ? key : currentNamespace + ":" + key;
+                result.put(id, value);
             } else {
-                LOGGER.warn(
-                        "Invalid value for gamerule {}: {}",
-                        key, value
-                );
+                LOGGER.warn("Invalid value for gamerule {}: {}", key, value);
             }
         }
 
         return result;
     }
 
-    private static void save(
-            Map<String, String> values
-    ) throws IOException {
+    private static String unquote(String value) {
+        if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+            return value.substring(1, value.length() - 1);
+        }
+        return value;
+    }
+
+    private static String namespace(String id) {
+        int separator = id.indexOf(':');
+        return separator >= 0 ? id.substring(0, separator) : "minecraft";
+    }
+
+    private static String path(String id) {
+        int separator = id.indexOf(':');
+        return separator >= 0 ? id.substring(separator + 1) : id;
+    }
+
+    private static void save(Map<String, String> values) throws IOException {
+        Map<String, Map<String, String>> grouped = new TreeMap<>();
+        values.forEach((id, value) ->
+                grouped.computeIfAbsent(namespace(id), ignored -> new TreeMap<>())
+                        .put(path(id), value)
+        );
 
         StringBuilder output = new StringBuilder();
-
         output.append("# Diabolical Default Gamerules\n");
-        output.append("# Only gamerules differing from their\n");
-        output.append("# registered startup defaults are stored.\n\n");
-        output.append("[gamerules]\n");
+        output.append("# Only gamerules differing from their registered startup defaults are stored.\n");
+        output.append("# Gamerules are grouped by the mod that registered them.\n");
 
-        values.forEach((key, value) ->
-                output.append("\"")
-                        .append(key)
-                        .append("\" = ")
-                        .append(value)
-                        .append("\n")
-        );
+        if (grouped.isEmpty()) {
+            output.append("\n# No gamerule overrides are currently saved.\n");
+        }
 
-        Path temporary = CONFIG.resolveSibling(
-                CONFIG.getFileName() + ".tmp"
-        );
+        grouped.forEach((modId, rules) -> {
+            output.append("\n[gamerules.").append(modId).append("]\n");
+            rules.forEach((key, value) ->
+                    output.append("\"").append(key).append("\" = ")
+                            .append(value).append("\n")
+            );
+        });
 
+        Path temporary = CONFIG.resolveSibling(CONFIG.getFileName() + ".tmp");
         Files.writeString(temporary, output.toString());
 
         try {
-            Files.move(
-                    temporary,
-                    CONFIG,
+            Files.move(temporary, CONFIG,
                     StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE
-            );
+                    StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException exception) {
-            Files.move(
-                    temporary,
-                    CONFIG,
-                    StandardCopyOption.REPLACE_EXISTING
-            );
+            Files.move(temporary, CONFIG, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
-    public static void apply(ServerLevel level) {
-
+    /**
+     * Applies configured overrides to the supplied world only. Returns the
+     * number of gamerules whose values actually changed.
+     */
+    public static int apply(ServerLevel level) {
         Map<String, String> configured;
-
         try {
             configured = load();
         } catch (IOException exception) {
             LOGGER.error("Failed to read gamerule config!", exception);
-            return;
+            return 0;
+        }
+
+        if (configured.isEmpty()) {
+            return 0;
         }
 
         Set<String> found = new HashSet<>();
-
+        int[] changed = {0};
         GameRules rules = level.getGameRules();
         MinecraftServer server = level.getServer();
 
-        GameRules.visitGameRuleTypes(
-                new GameRules.GameRuleTypeVisitor() {
-
+        GameRules.visitGameRuleTypes(new GameRules.GameRuleTypeVisitor() {
             @Override
-            public void visitBoolean(
-                    GameRules.Key<GameRules.BooleanValue> key,
-                    GameRules.Type<GameRules.BooleanValue> type
-            ) {
+            public void visitBoolean(GameRules.Key<GameRules.BooleanValue> key,
+                                     GameRules.Type<GameRules.BooleanValue> type) {
                 String id = key.getId();
                 found.add(id);
-
                 String configuredValue = configured.get(id);
-
                 if (configuredValue == null) {
                     return;
                 }
 
-                if (!configuredValue.equals("true")
-                        && !configuredValue.equals("false")) {
-                    LOGGER.warn(
-                            "Invalid boolean value for {}",
-                            id
-                    );
+                if (!configuredValue.equalsIgnoreCase("true")
+                        && !configuredValue.equalsIgnoreCase("false")) {
+                    LOGGER.warn("Invalid boolean value for gamerule {}", id);
                     return;
                 }
 
-                boolean desired =
-                        Boolean.parseBoolean(configuredValue);
-
-                GameRules.BooleanValue current =
-                        rules.getRule(key);
-
+                boolean desired = Boolean.parseBoolean(configuredValue);
+                GameRules.BooleanValue current = rules.getRule(key);
                 if (current.get() != desired) {
                     current.set(desired, server);
+                    changed[0]++;
                 }
             }
 
             @Override
-            public void visitInteger(
-                    GameRules.Key<GameRules.IntegerValue> key,
-                    GameRules.Type<GameRules.IntegerValue> type
-            ) {
+            public void visitInteger(GameRules.Key<GameRules.IntegerValue> key,
+                                     GameRules.Type<GameRules.IntegerValue> type) {
                 String id = key.getId();
                 found.add(id);
-
                 String configuredValue = configured.get(id);
-
                 if (configuredValue == null) {
                     return;
                 }
 
                 try {
-                    int desired =
-                            Integer.parseInt(configuredValue);
-
-                    GameRules.IntegerValue current =
-                            rules.getRule(key);
-
+                    int desired = Integer.parseInt(configuredValue);
+                    GameRules.IntegerValue current = rules.getRule(key);
                     if (current.get() != desired) {
                         current.set(desired, server);
+                        changed[0]++;
                     }
-
                 } catch (NumberFormatException exception) {
-                    LOGGER.warn(
-                            "Invalid integer gamerule value for {}",
-                            id
-                    );
+                    LOGGER.warn("Invalid integer gamerule value for {}", id);
                 }
             }
         });
 
         configured.keySet().stream()
                 .filter(key -> !found.contains(key))
-                .forEach(key -> LOGGER.warn(
-                        "Unknown gamerule in config: {}", key
-                ));
+                .forEach(key -> LOGGER.warn("Unknown gamerule in config: {}", key));
+
+        return changed[0];
     }
 
-    public static int sync(MinecraftServer server) {
-
+    /**
+     * Saves gamerules that differ from their registered startup defaults.
+     */
+    public static int saveDefaults(MinecraftServer server) {
         Map<String, String> changed = new TreeMap<>();
-
         GameRules defaults = new GameRules();
+        GameRules current = server.overworld().getGameRules();
 
-        GameRules current =
-                server.overworld().getGameRules();
-
-        GameRules.visitGameRuleTypes(
-                new GameRules.GameRuleTypeVisitor() {
-
+        GameRules.visitGameRuleTypes(new GameRules.GameRuleTypeVisitor() {
             @Override
-            public void visitBoolean(
-                    GameRules.Key<GameRules.BooleanValue> key,
-                    GameRules.Type<GameRules.BooleanValue> type
-            ) {
+            public void visitBoolean(GameRules.Key<GameRules.BooleanValue> key,
+                                     GameRules.Type<GameRules.BooleanValue> type) {
                 compare(key);
             }
 
             @Override
-            public void visitInteger(
-                    GameRules.Key<GameRules.IntegerValue> key,
-                    GameRules.Type<GameRules.IntegerValue> type
-            ) {
+            public void visitInteger(GameRules.Key<GameRules.IntegerValue> key,
+                                     GameRules.Type<GameRules.IntegerValue> type) {
                 compare(key);
             }
 
             private void compare(GameRules.Key<?> key) {
-
-                String startup =
-                        defaults.getRule(key).serialize();
-
-                String actual =
-                        current.getRule(key).serialize();
-
+                String startup = defaults.getRule(key).serialize();
+                String actual = current.getRule(key).serialize();
                 if (!startup.equals(actual)) {
                     changed.put(key.getId(), actual);
                 }
@@ -289,13 +255,8 @@ public final class GameruleDefaults {
         try {
             save(changed);
             return changed.size();
-
         } catch (IOException exception) {
-            LOGGER.error(
-                    "Failed to synchronize gamerule config!",
-                    exception
-            );
-
+            LOGGER.error("Failed to save gamerule defaults!", exception);
             return 0;
         }
     }
