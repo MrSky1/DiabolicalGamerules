@@ -8,11 +8,13 @@ import net.minecraft.network.chat.Component;
 
 public final class OldWorldSyncScreen extends Screen {
     private final boolean realPrompt;
+    private final boolean testPrompt;
     private Checkbox dontAskAgain;
 
-    public OldWorldSyncScreen(boolean realPrompt) {
+    public OldWorldSyncScreen(boolean realPrompt, boolean testPrompt) {
         super(Component.translatable("screen.diabolical_default_gamerules.title"));
         this.realPrompt = realPrompt;
+        this.testPrompt = testPrompt;
     }
 
     @Override
@@ -21,11 +23,11 @@ public final class OldWorldSyncScreen extends Screen {
         int buttonWidth = 100;
         int gap = 12;
         addRenderableWidget(Button.builder(Component.translatable("screen.diabolical_default_gamerules.yes"), button -> {
-            NetworkHandler.respond(true, false, realPrompt);
+            NetworkHandler.respond(true, false, realPrompt, testPrompt);
             onClose();
         }).bounds(center - buttonWidth - gap / 2, height / 2 + 24, buttonWidth, 20).build());
         addRenderableWidget(Button.builder(Component.translatable("screen.diabolical_default_gamerules.no"), button -> {
-            NetworkHandler.respond(false, dontAskAgain.selected(), realPrompt);
+            NetworkHandler.respond(false, dontAskAgain.selected(), realPrompt, testPrompt);
             onClose();
         }).bounds(center + gap / 2, height / 2 + 24, buttonWidth, 20).build());
         dontAskAgain = Checkbox.builder(Component.translatable("screen.diabolical_default_gamerules.dont_ask_again"), font).pos(center - 100, height / 2 + 54).selected(false).build();
