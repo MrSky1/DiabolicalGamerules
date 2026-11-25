@@ -16,7 +16,7 @@ public abstract class GameRulesMixin {
             GameRules.Type<?> type,
             CallbackInfoReturnable<GameRules.Key<?>> cir
     ) {
-        StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
+        Class<?> registeringClass = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
                 .walk(frames -> frames
                         .map(StackWalker.StackFrame::getDeclaringClass)
                         .filter(caller -> caller != GameRules.class
@@ -25,6 +25,10 @@ public abstract class GameRulesMixin {
                                 && !caller.getName().startsWith("net.neoforged.")
                                 && !caller.getName().startsWith("java."))
                         .findFirst()
-                        .ifPresent(caller -> GameruleDefaults.recordRuleOwner(name, caller)));
+                        .orElse(null));
+
+        if (registeringClass != null) {
+            GameruleDefaults.recordRuleOwner(name, registeringClass);
+        }
     }
 }
