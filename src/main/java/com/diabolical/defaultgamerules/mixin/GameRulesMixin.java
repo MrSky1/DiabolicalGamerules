@@ -16,15 +16,33 @@ public abstract class GameRulesMixin {
             GameRules.Type<?> type,
             CallbackInfoReturnable<GameRules.Key<?>> cir
     ) {
-        StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
-                .walk(frames -> frames
-                        .map(StackWalker.StackFrame::getDeclaringClass)
-                        .filter(caller -> caller != GameRules.class
-                                && !caller.getName().startsWith("com.diabolical.defaultgamerules.")
-                                && !caller.getName().startsWith("net.minecraft.")
-                                && !caller.getName().startsWith("net.neoforged.")
-                                && !caller.getName().startsWith("java."))
-                        .filter(caller -> GameruleDefaults.recordRuleOwner(name, caller))
-                        .findFirst());
+        Class<?> directCaller = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
+                .walk(frames -> {
+                    var stack = frames.toList();
+                    for (int i = 0; i < stack.size(); i++) {
+                        StackWalker.StackFrame frame = stack.get(i);
+                        if (frame.getDeclaringClass() == GameRules.class
+                                && frame.getMethodName().equals("register")) {
+                            return i + 1 < stack.size()
+                                    ? stack.get(i + 1).getDeclaringClass()
+                                    : null;
+                        }
+                    }
+                    return null;
+                });
+
+        // Vanilla's own static initializer is the direct caller for vanilla
+        // rules. Do not walk farther up the stack: another mod may merely
+        // have triggered GameRules class initialization.
+        if (directCaller == null
+                || directCaller == GameRules.class
+                || directCaller.getName().startsWith("com.diabolical.defaultgamerules.")
+                || directCaller.getName().startsWith("net.minecraft.")
+                || directCaller.getName().startsWith("net.neoforged.")
+                || directCaller.getName().startsWith("java.")) {
+            return;
+        }
+
+        GameruleDefaults.recordRuleOwner(name, directCaller);
     }
 }
