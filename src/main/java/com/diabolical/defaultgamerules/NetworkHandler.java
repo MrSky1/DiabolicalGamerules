@@ -12,21 +12,22 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 public final class NetworkHandler {
     private NetworkHandler() {}
 
-    public record OpenPrompt(boolean realPrompt) implements CustomPacketPayload {
+    public record OpenPrompt(boolean realPrompt, boolean testPrompt) implements CustomPacketPayload {
         public static final Type<OpenPrompt> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(DiabolicalDefaultGamerules.MOD_ID, "open_old_world_prompt"));
         public static final StreamCodec<RegistryFriendlyByteBuf, OpenPrompt> STREAM_CODEC =
-                StreamCodec.composite(ByteBufCodecs.BOOL, OpenPrompt::realPrompt, OpenPrompt::new);
+                StreamCodec.composite(ByteBufCodecs.BOOL, OpenPrompt::realPrompt, ByteBufCodecs.BOOL, OpenPrompt::testPrompt, OpenPrompt::new);
         @Override
         public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record PromptResponse(boolean yes, boolean dontAskAgain, boolean realPrompt) implements CustomPacketPayload {
+    public record PromptResponse(boolean yes, boolean dontAskAgain, boolean realPrompt, boolean testPrompt) implements CustomPacketPayload {
         public static final Type<PromptResponse> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(DiabolicalDefaultGamerules.MOD_ID, "old_world_prompt_response"));
         public static final StreamCodec<RegistryFriendlyByteBuf, PromptResponse> STREAM_CODEC =
                 StreamCodec.composite(
                         ByteBufCodecs.BOOL, PromptResponse::yes,
                         ByteBufCodecs.BOOL, PromptResponse::dontAskAgain,
                         ByteBufCodecs.BOOL, PromptResponse::realPrompt,
+                        ByteBufCodecs.BOOL, PromptResponse::testPrompt,
                         PromptResponse::new
                 );
         @Override
@@ -38,7 +39,7 @@ public final class NetworkHandler {
         registrar.playToClient(OpenPrompt.TYPE, OpenPrompt.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> {
                     if (net.neoforged.fml.loading.FMLEnvironment.dist == net.neoforged.api.distmarker.Dist.CLIENT) {
-                        ClientPromptHandler.open(payload.realPrompt());
+                        ClientPromptHandler.open(payload.realPrompt(), payload.testPrompt());
                     }
                 }));
         registrar.playToServer(PromptResponse.TYPE, PromptResponse.STREAM_CODEC, (payload, context) ->
@@ -47,11 +48,11 @@ public final class NetworkHandler {
                 }));
     }
 
-    public static void openPrompt(ServerPlayer player, boolean realPrompt) {
-        PacketDistributor.sendToPlayer(player, new OpenPrompt(realPrompt));
+    public static void openPrompt(ServerPlayer player, boolean realPrompt, boolean testPrompt) {
+        PacketDistributor.sendToPlayer(player, new OpenPrompt(realPrompt, testPrompt));
     }
 
-    public static void respond(boolean yes, boolean dontAskAgain, boolean realPrompt) {
-        PacketDistributor.sendToServer(new PromptResponse(yes, dontAskAgain, realPrompt));
+    public static void respond(boolean yes, boolean dontAskAgain, boolean realPrompt, boolean testPrompt) {
+        PacketDistributor.sendToServer(new PromptResponse(yes, dontAskAgain, realPrompt, testPrompt));
     }
 }
