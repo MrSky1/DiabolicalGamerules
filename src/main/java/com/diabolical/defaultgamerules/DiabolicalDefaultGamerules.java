@@ -88,6 +88,13 @@ public class DiabolicalDefaultGamerules {
                                     );
                                     return count;
                                 }))
+                        .then(Commands.literal("prompt_debug")
+                                .executes(context -> {
+                                    NetworkHandler.openPrompt(
+                                            context.getSource().getPlayerOrException()
+                                    );
+                                    return 1;
+                                }))
         );
     }
 }
