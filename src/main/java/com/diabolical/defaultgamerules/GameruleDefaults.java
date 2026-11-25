@@ -154,33 +154,12 @@ public final class GameruleDefaults {
     }
 
     /**
-     * Resolve the owner recorded at registration time. Keep the old prefix
-     * heuristic as a compatibility fallback for unusual classloader layouts.
+     * Only use an owner captured from the direct GameRules.register caller.
+     * If registration did not come directly from a recognized mod class,
+     * treat the rule as vanilla instead of guessing from its name.
      */
     private static String qualifiedId(String ruleName) {
-        String owner = RULE_OWNERS.get(ruleName);
-        if (owner == null) {
-            owner = ModList.get().getMods().stream()
-                    .map(mod -> mod.getModId())
-                    .filter(modId -> ruleName.startsWith(toCamelCase(modId)))
-                    .max(java.util.Comparator.comparingInt(String::length))
-                    .orElse("minecraft");
-        }
-        return owner + ":" + ruleName;
-    }
-
-    private static String toCamelCase(String modId) {
-        StringBuilder result = new StringBuilder();
-        boolean capitalizeNext = false;
-        for (char character : modId.toCharArray()) {
-            if (character == '_' || character == '-') {
-                capitalizeNext = true;
-            } else {
-                result.append(capitalizeNext ? Character.toUpperCase(character) : character);
-                capitalizeNext = false;
-            }
-        }
-        return result.toString();
+        return RULE_OWNERS.getOrDefault(ruleName, "minecraft") + ":" + ruleName;
     }
 
     private static String namespace(String id) {
