@@ -46,7 +46,7 @@ public class DiabolicalDefaultGamerules {
                                 .executes(context -> {
                                     int count = GameruleDefaults.saveDefaults(context.getSource().getServer());
                                     context.getSource().sendSuccess(
-                                            () -> Component.literal("Saved " + count + " gamerule defaults to the config."),
+                                            () -> Component.literal("Saved " + count + " gamerule changes to the config."),
                                             true
                                     );
                                     return count;
@@ -56,12 +56,12 @@ public class DiabolicalDefaultGamerules {
                                     int count = GameruleDefaults.apply(context.getSource().getLevel());
                                     if (count == 0) {
                                         context.getSource().sendFailure(Component.literal(
-                                                "No gamerules needed changing. Check that the config contains valid gamerule values that differ from this world's current values."
+                                                "No gamerule changes applied. Check that the config contains gamerules that differ from the defaults."
                                         ));
                                         return 0;
                                     }
                                     context.getSource().sendSuccess(
-                                            () -> Component.literal("Applied " + count + " configured gamerule changes to this world."),
+                                            () -> Component.literal("Applied " + count + " gamerule changes to this world."),
                                             true
                                     );
                                     return count;
@@ -73,8 +73,8 @@ public class DiabolicalDefaultGamerules {
                                             NetworkHandler.openPrompt(context.getSource().getPlayerOrException(), realPrompt, true);
                                             context.getSource().sendSuccess(
                                                     () -> Component.literal(realPrompt
-                                                            ? "Opened the real old-world prompt."
-                                                            : "Opened the debug-only prompt. Responses will not change the world."),
+                                                            ? "Opened a real sync prompt."
+                                                            : "Opened a debug prompt. Responses won't change anything."),
                                                     false
                                             );
                                             return 1;
