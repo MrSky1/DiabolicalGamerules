@@ -5,7 +5,7 @@ loaderVersion="${loader_version_range}" #mandatory
 
 license="${mod_license}"
 
-#issueTrackerURL="https://change.me.to.your.issue.tracker.example.invalid/" #optional
+#issueTrackerURL="https://github.com/MrSky1/DiabolicalGamerules/issues" #optional
 
 [[mods]] #mandatory
 
@@ -17,16 +17,16 @@ displayName="${mod_name}" #mandatory
 
 #updateJSONURL="https://change.me.example.invalid/updates.json" #optional
 
-#displayURL="https://change.me.to.your.mods.homepage.example.invalid/" #optional
+#displayURL="https://github.com/MrSky1/DiabolicalGamerules/tree/main" #optional
 
 #logoFile="examplemod.png" #optional
 
 #credits="" #optional
 
-authors="Myself, ChatGPT (AI)"
+authors="ChatGPT (AI), MrSky1"
 
 description='''
-I couldn't find a default gamerule mod I was happy with, so I asked ChatGPT to make this one for me. Ideally, you'll be able to edit gamerule defaults from a config file, or you can sync your new defaults with a single command from ingame.
+I couldn't find a default gamerule mod I was happy with, so I asked ChatGPT to make this for me. You can set new default gamerules with the use of one command ingame.
 '''
 
 [[mixins]]
