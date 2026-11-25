@@ -35,10 +35,6 @@ public class DiabolicalDefaultGamerules {
             return;
         }
 
-        if (event.getSettings().isInitialized()) {
-            return;
-        }
-
         GameruleDefaults.apply(level);
         DefaultGameruleWorldData.get(level).setSynced(true);
     }
