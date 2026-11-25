@@ -35,7 +35,7 @@ public class DiabolicalDefaultGamerules {
     private void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) || !GameruleDefaults.shouldPromptOldWorlds()) return;
         DefaultGameruleWorldData data = DefaultGameruleWorldData.get(player.getServer().overworld());
-        if (!data.isSynced()) NetworkHandler.openPrompt(player, true);
+        if (!data.isSynced()) NetworkHandler.openPrompt(player, true, false);
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {
@@ -70,7 +70,7 @@ public class DiabolicalDefaultGamerules {
                                 .then(Commands.argument("real_prompt", BoolArgumentType.bool())
                                         .executes(context -> {
                                             boolean realPrompt = BoolArgumentType.getBool(context, "real_prompt");
-                                            NetworkHandler.openPrompt(context.getSource().getPlayerOrException(), realPrompt);
+                                            NetworkHandler.openPrompt(context.getSource().getPlayerOrException(), realPrompt, true);
                                             context.getSource().sendSuccess(
                                                     () -> Component.literal(realPrompt
                                                             ? "Opened the real old-world prompt."
