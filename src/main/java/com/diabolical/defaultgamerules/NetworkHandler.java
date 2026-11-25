@@ -21,8 +21,11 @@ public final class NetworkHandler {
     }
     public static void register(RegisterPayloadHandlersEvent event) {
         var registrar = event.registrar("1");
-        registrar.playToClient(OpenPrompt.TYPE, OpenPrompt.STREAM_CODEC, (payload, context) ->
-            net.neoforged.fml.DistExecutor.unsafeRunWhenOn(net.neoforged.api.distmarker.Dist.CLIENT, () -> () -> ClientPromptHandler.open()));
+        registrar.playToClient(OpenPrompt.TYPE, OpenPrompt.STREAM_CODEC, (payload, context) -> {
+            if (net.neoforged.fml.loading.FMLLoader.dist == net.neoforged.api.distmarker.Dist.CLIENT) {
+                ClientPromptHandler.open();
+            }
+        });
         registrar.playToServer(PromptResponse.TYPE, PromptResponse.STREAM_CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) ServerLevelAccess.handle(player, payload);
         });
