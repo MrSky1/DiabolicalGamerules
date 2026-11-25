@@ -21,14 +21,16 @@ public final class NetworkHandler {
     }
     public static void register(RegisterPayloadHandlersEvent event) {
         var registrar = event.registrar("1");
-        registrar.playToClient(OpenPrompt.TYPE, OpenPrompt.STREAM_CODEC, (payload, context) -> {
-            if (net.neoforged.fml.loading.FMLLoader.dist == net.neoforged.api.distmarker.Dist.CLIENT) {
-                ClientPromptHandler.open();
-            }
-        });
-        registrar.playToServer(PromptResponse.TYPE, PromptResponse.STREAM_CODEC, (payload, context) -> {
-            if (context.player() instanceof ServerPlayer player) ServerLevelAccess.handle(player, payload);
-        });
+        registrar.playToClient(OpenPrompt.TYPE, OpenPrompt.STREAM_CODEC, (payload, context) ->
+            context.enqueueWork(() -> {
+                if (net.neoforged.fml.loading.FMLEnvironment.dist == net.neoforged.api.distmarker.Dist.CLIENT) {
+                    ClientPromptHandler.open();
+                }
+            }));
+        registrar.playToServer(PromptResponse.TYPE, PromptResponse.STREAM_CODEC, (payload, context) ->
+            context.enqueueWork(() -> {
+                if (context.player() instanceof ServerPlayer player) ServerLevelAccess.handle(player, payload);
+            }));
     }
     public static void openPrompt(ServerPlayer player) { PacketDistributor.sendToPlayer(player, new OpenPrompt()); }
     public static void respond(boolean yes, boolean dontAskAgain) { PacketDistributor.sendToServer(new PromptResponse(yes, dontAskAgain)); }
